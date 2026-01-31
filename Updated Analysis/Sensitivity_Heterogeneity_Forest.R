@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v21 - I2 Added + Diamond Fix)
+# Sensitivity Heterogeneity Forest Plot (v22 - I2 after k)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -77,17 +77,23 @@ es_vals <- ifelse(is.na(means), "",
     )
 )
 
-# New Column Order: Exposure: Outcome | Plot | Effect Size | I2 | k
+# New Column Order: Exposure: Outcome | Plot | Effect Size | k | I2
 tabletext <- cbind(
     c("Exposure: Outcome", labels),
     c("Effect Size (95% CIs)", es_vals),
-    c("I^2", i2s), # Added I2
-    c("k", ks)
+    c("k", ks),
+    c("I^2", i2s) # I2 Moved after k
 )
 
 final_means <- c(NA, means)
 final_lowers <- c(NA, lowers)
 final_uppers <- c(NA, uppers)
+
+# IMPORTANT: Fix Off-by-one error
+# forestplot iterates over ALL rows including header.
+# final_means has Header + Data.
+# marker_clrs must match final_means length.
+marker_clrs <- c(NA, marker_clrs)
 
 is_summary_safe <- rep(FALSE, length(final_means))
 is_summary_safe[1] <- TRUE # Header
@@ -97,18 +103,20 @@ fn_custom <- local({
     clrs <- marker_clrs
     function(..., clr.line, clr.marker) {
         i <<- i + 1
-        # Since forestplot only calls this for non-NA rows, 'i' tracks the draw calls.
-        # marker_clrs contains exactly the colors for those calls.
+        # Safety check
         if (i > length(clrs)) {
             return()
         }
         color <- clrs[i]
+        if (is.na(color)) {
+            return()
+        }
         fpDrawDiamondCI(..., clr.line = color, clr.marker = color, boxsize = 0.5)
     }
 })
 
 # Export JPEG
-# Height calculation
+# Height calculation: Increased multiplier to ensure no clipping
 jpeg_height <- (4 + length(labels) * 0.40) * 300
 jpeg_width <- 16 * 300 # Increased width for extra column
 
