@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v22 - I2 after k)
+# Sensitivity Heterogeneity Forest Plot (v23 - Strict Color Sync)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -17,8 +17,8 @@ means <- c()
 lowers <- c()
 uppers <- c()
 ks <- c()
-i2s <- c() # Add I2
-marker_clrs <- c() # ONLY storing colors for drawn rows (non-NA)
+i2s <- c()
+marker_clrs <- c() # MUST track ONLY drawn items (non-NA means)
 
 # Horizontal lines list
 hr_lines <- list()
@@ -29,36 +29,42 @@ for (i in seq_len(nrow(df))) {
 
     # Row A: Outcome + Primary (Black)
     labels <- c(labels, grp)
-    means <- c(means, df$Orig_OR[i])
+    val_mean <- df$Orig_OR[i]
+    means <- c(means, val_mean)
     lowers <- c(lowers, df$Orig_Lower[i])
     uppers <- c(uppers, df$Orig_Upper[i])
     ks <- c(ks, df$Orig_k[i])
-    i2s <- c(i2s, sprintf("%.0f%%", df$Orig_I2[i])) # Format I2
+    i2s <- c(i2s, sprintf("%.0f%%", df$Orig_I2[i]))
 
-    # Add color to marker list (This row HAS data, so it WILL be drawn)
-    marker_clrs <- c(marker_clrs, "black")
+    # Strict Sync: Only add color if mean is valid (will be drawn)
+    if (!is.na(val_mean)) {
+        marker_clrs <- c(marker_clrs, "black")
+    }
     current_row_idx <- current_row_idx + 1
 
     # Row B: Sensitivity (Blue)
     labels <- c(labels, "")
-    means <- c(means, df$New_OR[i])
+    val_mean_sens <- df$New_OR[i]
+    means <- c(means, val_mean_sens)
     lowers <- c(lowers, df$New_Lower[i])
     uppers <- c(uppers, df$New_Upper[i])
     ks <- c(ks, df$New_k[i])
     i2s <- c(i2s, sprintf("%.0f%%", df$New_I2[i]))
 
-    # Add color to marker list (This row HAS data)
-    marker_clrs <- c(marker_clrs, "blue")
+    # Strict Sync: Only add color if mean is valid
+    if (!is.na(val_mean_sens)) {
+        marker_clrs <- c(marker_clrs, "blue")
+    }
     current_row_idx <- current_row_idx + 1
 
     # Row C: Spacer
     labels <- c(labels, "")
-    means <- c(means, NA)
+    means <- c(means, NA) # NA mean -> Not drawn -> No color added
     lowers <- c(lowers, NA)
     uppers <- c(uppers, NA)
     ks <- c(ks, "")
     i2s <- c(i2s, "")
-    # NO color added here because means is NA (won't be drawn)
+    # NO Update to marker_clrs here!
     current_row_idx <- current_row_idx + 1
 
     # Add Line AFTER Spacer
@@ -77,23 +83,20 @@ es_vals <- ifelse(is.na(means), "",
     )
 )
 
-# New Column Order: Exposure: Outcome | Plot | Effect Size | k | I2
 tabletext <- cbind(
     c("Exposure: Outcome", labels),
     c("Effect Size (95% CIs)", es_vals),
     c("k", ks),
-    c("I^2", i2s) # I2 Moved after k
+    c("I^2", i2s)
 )
 
 final_means <- c(NA, means)
 final_lowers <- c(NA, lowers)
 final_uppers <- c(NA, uppers)
 
-# IMPORTANT: Fix Off-by-one error
-# forestplot iterates over ALL rows including header.
-# final_means has Header + Data.
-# marker_clrs must match final_means length.
-marker_clrs <- c(NA, marker_clrs)
+# Header is NA (mean), so it is skipped by drawer.
+# Therefore, marker_clrs should NOT have an entry for the header.
+# We do NOT prepend NA.
 
 is_summary_safe <- rep(FALSE, length(final_means))
 is_summary_safe[1] <- TRUE # Header
@@ -103,7 +106,7 @@ fn_custom <- local({
     clrs <- marker_clrs
     function(..., clr.line, clr.marker) {
         i <<- i + 1
-        # Safety check
+        # Safety
         if (i > length(clrs)) {
             return()
         }
@@ -116,9 +119,8 @@ fn_custom <- local({
 })
 
 # Export JPEG
-# Height calculation: Increased multiplier to ensure no clipping
 jpeg_height <- (4 + length(labels) * 0.40) * 300
-jpeg_width <- 16 * 300 # Increased width for extra column
+jpeg_width <- 16 * 300
 
 jpeg("Heterogeneity_Sensitivity_Forest.jpg", width = jpeg_width, height = jpeg_height, res = 300)
 
