@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v18 - Lines Down, Top Removed, Last Removed)
+# Sensitivity Heterogeneity Forest Plot (v19 - Red Line, New Headers)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -53,17 +53,6 @@ for (i in seq_len(nrow(df))) {
     # Add Line AFTER Spacer (moved down one spot)
     # BUT only if not the last group
     if (i < nrow(df)) {
-        # Current row index is length(labels).
-        # Since forestplot header is row 1, and we have a header in tabletext?
-        # Wait, 'labels' is part of tabletext.
-        # 'tabletext' construction puts 'Outcome / Analysis' as Row 1.
-        # 'labels' actually corresponds to rows 2, 3, ...
-        # So the row index in the PLOT (where hrzl_lines applies) matches the table rows.
-        # length(labels) is the number of data rows.
-        # Total rows = 1 (Header) + length(labels).
-        # We want line after the Spacer. Spacer is the last added label.
-        # So line index = 1 + length(labels).
-
         idx_line <- 1 + length(labels)
         hr_lines[[as.character(idx_line)]] <- gpar(col = "grey50", lwd = 1)
     }
@@ -79,8 +68,8 @@ es_vals <- ifelse(is.na(means), "",
 )
 
 tabletext <- cbind(
-    c("Outcome / Analysis", labels),
-    c("Odds Ratio (95% CI)", es_vals),
+    c("Exposure: Outcome", labels), # Updated Header
+    c("Effect Size (95% CIs)", es_vals), # Updated Header
     c("k", ks)
 )
 
@@ -123,7 +112,7 @@ forestplot(
     fn.ci_norm = fn_custom,
     is.summary = is_summary_safe,
     xlog = TRUE,
-    col = fpColors(lines = "black", zero = "gray"),
+    col = fpColors(lines = "black", zero = "red"), # Red Zero Line
     lwd.ci = 3,
     colgap = unit(4, "mm"),
     title = "",
