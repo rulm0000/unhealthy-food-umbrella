@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v16 - Lines + Legend Fix)
+# Sensitivity Heterogeneity Forest Plot (v17 - Lines + Safe Legend)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -16,17 +16,14 @@ labels <- c()
 means <- c()
 lowers <- c()
 uppers <- c()
-i2s <- c()
 ks <- c()
 marker_clrs <- c()
 
 # Horizontal lines list
-# Start with top line at row 1 (Header)
+# Top line above header
 hr_lines <- list("1" = gpar(lwd = 2, col = "black"))
 
-# Track row index to place lines correctly
-# Row 1 is Header.
-# Data starts at Row 2.
+# Row index tracking (Header is Row 1)
 current_row_idx <- 1
 
 for (i in seq_len(nrow(df))) {
@@ -50,7 +47,7 @@ for (i in seq_len(nrow(df))) {
     marker_clrs <- c(marker_clrs, "blue")
     current_row_idx <- current_row_idx + 1
 
-    # Add Line AFTER Sensitivity Row
+    # Add Line AFTER Sensitivity Row (End of Domain)
     hr_lines[[as.character(current_row_idx)]] <- gpar(col = "grey50", lwd = 1)
 
     # Row C: Spacer
@@ -126,22 +123,22 @@ forestplot(
         xlab = gpar(cex = 1.6)
     ),
     xlab = "Odds Ratio (log scale)",
-    hrzl_lines = hr_lines # Apply dynamic lines
+    hrzl_lines = hr_lines
 )
 
 # Draw Legend manually
-# Force to Root Viewport to ensure drawing on top of everything
-seekViewport("ROOT")
+# Navigate to top viewport to avoid clipping
+try(upViewport(0), silent = TRUE)
 
 # Primary
 grid.text("Primary Analysis", x = 0.30, y = 0.96, gp = gpar(fontsize = 20, fontface = "bold", col = "black"), just = "left")
 grid.lines(x = c(0.24, 0.29), y = 0.96, gp = gpar(col = "black", lwd = 3))
-grid.points(x = 0.265, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "black", fill = "black"))
+grid.points(x = 0.265, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "black"))
 
 # Sensitivity
 grid.text("Sensitivity Analysis", x = 0.60, y = 0.96, gp = gpar(fontsize = 20, fontface = "bold", col = "black"), just = "left")
 grid.lines(x = c(0.54, 0.59), y = 0.96, gp = gpar(col = "blue", lwd = 3))
-grid.points(x = 0.565, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "blue", fill = "blue"))
+grid.points(x = 0.565, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "blue"))
 
 dev.off()
 cat("Plot created: Heterogeneity_Sensitivity_Forest.jpg\n")
