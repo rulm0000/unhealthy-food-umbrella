@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v19 - Red Line, New Headers)
+# Sensitivity Heterogeneity Forest Plot (v20 - Fix Color Indexing & Missing Plots)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -68,14 +68,20 @@ es_vals <- ifelse(is.na(means), "",
 )
 
 tabletext <- cbind(
-    c("Exposure: Outcome", labels), # Updated Header
-    c("Effect Size (95% CIs)", es_vals), # Updated Header
+    c("Exposure: Outcome", labels),
+    c("Effect Size (95% CIs)", es_vals),
     c("k", ks)
 )
 
 final_means <- c(NA, means)
 final_lowers <- c(NA, lowers)
 final_uppers <- c(NA, uppers)
+
+# IMPORTANT: Fix Off-by-one error
+# forestplot iterates over ALL rows including header.
+# final_means has Header + Data.
+# marker_clrs must match final_means length.
+marker_clrs <- c(NA, marker_clrs)
 
 is_summary_safe <- rep(FALSE, length(final_means))
 is_summary_safe[1] <- TRUE # Header
@@ -85,6 +91,7 @@ fn_custom <- local({
     clrs <- marker_clrs
     function(..., clr.line, clr.marker) {
         i <<- i + 1
+        # Safety check
         if (i > length(clrs)) {
             return()
         }
@@ -97,8 +104,8 @@ fn_custom <- local({
 })
 
 # Export JPEG
-# Height calculation
-jpeg_height <- (4 + length(labels) * 0.35) * 300
+# Height calculation: Increased multiplier to ensure no clipping
+jpeg_height <- (4 + length(labels) * 0.40) * 300
 jpeg_width <- 15 * 300
 
 jpeg("Heterogeneity_Sensitivity_Forest.jpg", width = jpeg_width, height = jpeg_height, res = 300)
@@ -112,7 +119,7 @@ forestplot(
     fn.ci_norm = fn_custom,
     is.summary = is_summary_safe,
     xlog = TRUE,
-    col = fpColors(lines = "black", zero = "red"), # Red Zero Line
+    col = fpColors(lines = "black", zero = "red"),
     lwd.ci = 3,
     colgap = unit(4, "mm"),
     title = "",
@@ -126,7 +133,7 @@ forestplot(
 )
 
 # Draw Legend manually
-# Navigate to top viewport to avoid clipping
+# Navigate to top viewport
 try(upViewport(0), silent = TRUE)
 
 # Primary
