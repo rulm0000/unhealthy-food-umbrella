@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v14 - Compact, Large Text, Fixed Legend Icons)
+# Sensitivity Heterogeneity Forest Plot (v15 - Collapsed Rows, No Text Labels)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -23,16 +23,8 @@ marker_clrs <- c()
 for (i in seq_len(nrow(df))) {
     grp <- gsub("_", ": ", df$Group[i])
 
-    # Header
+    # Row 1: Outcome Name + Primary Analysis (Black)
     labels <- c(labels, grp)
-    means <- c(means, NA)
-    lowers <- c(lowers, NA)
-    uppers <- c(uppers, NA)
-    i2s <- c(i2s, "")
-    ks <- c(ks, "")
-
-    # Primary
-    labels <- c(labels, "   Primary Analysis")
     means <- c(means, df$Orig_OR[i])
     lowers <- c(lowers, df$Orig_Lower[i])
     uppers <- c(uppers, df$Orig_Upper[i])
@@ -40,8 +32,8 @@ for (i in seq_len(nrow(df))) {
     ks <- c(ks, df$Orig_k[i])
     marker_clrs <- c(marker_clrs, "black")
 
-    # Sensitivity
-    labels <- c(labels, "   Sensitivity Analysis")
+    # Row 2: Empty Label + Sensitivity Analysis (Blue)
+    labels <- c(labels, "")
     means <- c(means, df$New_OR[i])
     lowers <- c(lowers, df$New_Lower[i])
     uppers <- c(uppers, df$New_Upper[i])
@@ -77,6 +69,16 @@ final_means <- c(NA, means)
 final_lowers <- c(NA, lowers)
 final_uppers <- c(NA, uppers)
 
+# Summary: Only Outcome Header rows (which now have Data) should be Bold?
+# Or should we make them normal font but allow the plot to draw?
+# If we set is.summary=TRUE, forestplot bolds the text.
+# We want the Outcome Name bold.
+# But we also want to draw a Custom Marker (Diamond), not a Summary Polygon.
+# Our custom function 'fn.ci_norm' overrides standard markers.
+# Forestplot usage: fn.ci_norm handles standard CIs. fn.ci_sum handles summary CIs.
+# If is.summary=TRUE, it calls fn.ci_sum.
+# So we must assign our custom function to `fn.ci_sum` as well if we want summary rows to use Diamonds.
+
 is_summary <- c(TRUE, grepl(":", labels) | labels == "")
 
 fn_custom <- local({
@@ -88,14 +90,34 @@ fn_custom <- local({
             return()
         }
         color <- clrs[i]
+        if (is.na(color)) {
+            return()
+        } # Safety
         fpDrawDiamondCI(..., clr.line = color, clr.marker = color, boxsize = 0.5)
     }
 })
 
+# We need a separate counter/function for summary if we want to support both.
+# But wait, our 'marker_clrs' matches the length of data rows (non-NA).
+# If header rows are summary, they consume an index.
+# The `marker_clrs` vector was built assuming every data row gets a color.
+# Row 1 (Header+Primary) -> Black.
+# Row 2 (Sensitivity) -> Blue.
+# This works perfectly.
+# EXCEPT: forestplot calls `fn.ci_sum` for summary rows and `fn.ci_norm` for normal rows.
+# We must ensure both use our custom painter AND share the same index counter 'i'.
+# Or better: simply treat all rows as NORMAL rows (is.summary = FALSE)
+# and use a 'txt_gp' argument to Bold the first column if it matches the pattern?
+# Forestplot strictly separates summary/normal rows.
+# Setting is.summary = FALSE for everything makes the text normal weight. This is safe and clean.
+# Use standard 'fn.ci_norm'.
+
+is_summary_safe <- rep(FALSE, length(final_means))
+is_summary_safe[1] <- TRUE # Header of table is summary
+
 # Export JPEG
-# Scaled for 300dpi readability
-# Compact height: Reduced multiplier from 0.45 to 0.35
-jpeg_height <- (4 + length(labels) * 0.35) * 300
+# Height calculation: fewer rows now, but keep spacing
+jpeg_height <- (4 + length(labels) * 0.4) * 300
 jpeg_width <- 15 * 300
 
 jpeg("Heterogeneity_Sensitivity_Forest.jpg", width = jpeg_width, height = jpeg_height, res = 300)
@@ -106,18 +128,18 @@ forestplot(
     mean = final_means,
     lower = final_lowers,
     upper = final_uppers,
-    fn.ci_norm = fn_custom,
-    is.summary = is_summary,
+    fn.ci_norm = fn_custom, # Use custom drawer for ALL rows (since we set is.summary=FALSE)
+    is.summary = is_summary_safe,
     xlog = TRUE,
     col = fpColors(lines = "black", zero = "gray"),
-    lwd.ci = 3, # Thicker lines
-    colgap = unit(4, "mm"), # Compact column gap
-    title = "", # No Title
+    lwd.ci = 3,
+    colgap = unit(4, "mm"),
+    title = "",
     txt_gp = fpTxtGp(
-        label = gpar(cex = 1.6), # Much Larger Labels
-        ticks = gpar(cex = 1.5), # Larger Axis Ticks
+        label = gpar(cex = 1.6),
+        ticks = gpar(cex = 1.5),
         xlab = gpar(cex = 1.6)
-    ), # Larger Axis Label
+    ),
     xlab = "Odds Ratio (log scale)",
     hrzl_lines = list("1" = gpar(lwd = 2, col = "black"))
 )
