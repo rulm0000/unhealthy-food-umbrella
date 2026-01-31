@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v20 - Fix Color Indexing & Missing Plots)
+# Sensitivity Heterogeneity Forest Plot (v21 - I2 Added + Diamond Fix)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -17,11 +17,12 @@ means <- c()
 lowers <- c()
 uppers <- c()
 ks <- c()
-marker_clrs <- c()
+i2s <- c() # Add I2
+marker_clrs <- c() # ONLY storing colors for drawn rows (non-NA)
 
 # Horizontal lines list
-# Top black line removed as requested
 hr_lines <- list()
+current_row_idx <- 1
 
 for (i in seq_len(nrow(df))) {
     grp <- gsub("_", ": ", df$Group[i])
@@ -32,7 +33,11 @@ for (i in seq_len(nrow(df))) {
     lowers <- c(lowers, df$Orig_Lower[i])
     uppers <- c(uppers, df$Orig_Upper[i])
     ks <- c(ks, df$Orig_k[i])
+    i2s <- c(i2s, sprintf("%.0f%%", df$Orig_I2[i])) # Format I2
+
+    # Add color to marker list (This row HAS data, so it WILL be drawn)
     marker_clrs <- c(marker_clrs, "black")
+    current_row_idx <- current_row_idx + 1
 
     # Row B: Sensitivity (Blue)
     labels <- c(labels, "")
@@ -40,7 +45,11 @@ for (i in seq_len(nrow(df))) {
     lowers <- c(lowers, df$New_Lower[i])
     uppers <- c(uppers, df$New_Upper[i])
     ks <- c(ks, df$New_k[i])
+    i2s <- c(i2s, sprintf("%.0f%%", df$New_I2[i]))
+
+    # Add color to marker list (This row HAS data)
     marker_clrs <- c(marker_clrs, "blue")
+    current_row_idx <- current_row_idx + 1
 
     # Row C: Spacer
     labels <- c(labels, "")
@@ -48,10 +57,11 @@ for (i in seq_len(nrow(df))) {
     lowers <- c(lowers, NA)
     uppers <- c(uppers, NA)
     ks <- c(ks, "")
-    marker_clrs <- c(marker_clrs, NA)
+    i2s <- c(i2s, "")
+    # NO color added here because means is NA (won't be drawn)
+    current_row_idx <- current_row_idx + 1
 
-    # Add Line AFTER Spacer (moved down one spot)
-    # BUT only if not the last group
+    # Add Line AFTER Spacer
     if (i < nrow(df)) {
         idx_line <- 1 + length(labels)
         hr_lines[[as.character(idx_line)]] <- gpar(col = "grey50", lwd = 1)
@@ -67,21 +77,17 @@ es_vals <- ifelse(is.na(means), "",
     )
 )
 
+# New Column Order: Exposure: Outcome | Plot | Effect Size | I2 | k
 tabletext <- cbind(
     c("Exposure: Outcome", labels),
     c("Effect Size (95% CIs)", es_vals),
+    c("I^2", i2s), # Added I2
     c("k", ks)
 )
 
 final_means <- c(NA, means)
 final_lowers <- c(NA, lowers)
 final_uppers <- c(NA, uppers)
-
-# IMPORTANT: Fix Off-by-one error
-# forestplot iterates over ALL rows including header.
-# final_means has Header + Data.
-# marker_clrs must match final_means length.
-marker_clrs <- c(NA, marker_clrs)
 
 is_summary_safe <- rep(FALSE, length(final_means))
 is_summary_safe[1] <- TRUE # Header
@@ -91,22 +97,20 @@ fn_custom <- local({
     clrs <- marker_clrs
     function(..., clr.line, clr.marker) {
         i <<- i + 1
-        # Safety check
+        # Since forestplot only calls this for non-NA rows, 'i' tracks the draw calls.
+        # marker_clrs contains exactly the colors for those calls.
         if (i > length(clrs)) {
             return()
         }
         color <- clrs[i]
-        if (is.na(color)) {
-            return()
-        }
         fpDrawDiamondCI(..., clr.line = color, clr.marker = color, boxsize = 0.5)
     }
 })
 
 # Export JPEG
-# Height calculation: Increased multiplier to ensure no clipping
+# Height calculation
 jpeg_height <- (4 + length(labels) * 0.40) * 300
-jpeg_width <- 15 * 300
+jpeg_width <- 16 * 300 # Increased width for extra column
 
 jpeg("Heterogeneity_Sensitivity_Forest.jpg", width = jpeg_width, height = jpeg_height, res = 300)
 
@@ -133,7 +137,6 @@ forestplot(
 )
 
 # Draw Legend manually
-# Navigate to top viewport
 try(upViewport(0), silent = TRUE)
 
 # Primary
