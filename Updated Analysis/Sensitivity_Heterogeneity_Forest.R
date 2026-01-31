@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v17 - Lines + Safe Legend)
+# Sensitivity Heterogeneity Forest Plot (v18 - Lines Down, Top Removed, Last Removed)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -20,11 +20,8 @@ ks <- c()
 marker_clrs <- c()
 
 # Horizontal lines list
-# Top line above header
-hr_lines <- list("1" = gpar(lwd = 2, col = "black"))
-
-# Row index tracking (Header is Row 1)
-current_row_idx <- 1
+# Top black line removed as requested
+hr_lines <- list()
 
 for (i in seq_len(nrow(df))) {
     grp <- gsub("_", ": ", df$Group[i])
@@ -36,7 +33,6 @@ for (i in seq_len(nrow(df))) {
     uppers <- c(uppers, df$Orig_Upper[i])
     ks <- c(ks, df$Orig_k[i])
     marker_clrs <- c(marker_clrs, "black")
-    current_row_idx <- current_row_idx + 1
 
     # Row B: Sensitivity (Blue)
     labels <- c(labels, "")
@@ -45,10 +41,6 @@ for (i in seq_len(nrow(df))) {
     uppers <- c(uppers, df$New_Upper[i])
     ks <- c(ks, df$New_k[i])
     marker_clrs <- c(marker_clrs, "blue")
-    current_row_idx <- current_row_idx + 1
-
-    # Add Line AFTER Sensitivity Row (End of Domain)
-    hr_lines[[as.character(current_row_idx)]] <- gpar(col = "grey50", lwd = 1)
 
     # Row C: Spacer
     labels <- c(labels, "")
@@ -56,7 +48,25 @@ for (i in seq_len(nrow(df))) {
     lowers <- c(lowers, NA)
     uppers <- c(uppers, NA)
     ks <- c(ks, "")
-    current_row_idx <- current_row_idx + 1
+    marker_clrs <- c(marker_clrs, NA)
+
+    # Add Line AFTER Spacer (moved down one spot)
+    # BUT only if not the last group
+    if (i < nrow(df)) {
+        # Current row index is length(labels).
+        # Since forestplot header is row 1, and we have a header in tabletext?
+        # Wait, 'labels' is part of tabletext.
+        # 'tabletext' construction puts 'Outcome / Analysis' as Row 1.
+        # 'labels' actually corresponds to rows 2, 3, ...
+        # So the row index in the PLOT (where hrzl_lines applies) matches the table rows.
+        # length(labels) is the number of data rows.
+        # Total rows = 1 (Header) + length(labels).
+        # We want line after the Spacer. Spacer is the last added label.
+        # So line index = 1 + length(labels).
+
+        idx_line <- 1 + length(labels)
+        hr_lines[[as.character(idx_line)]] <- gpar(col = "grey50", lwd = 1)
+    }
 }
 
 # 3. Assemble Table Text
