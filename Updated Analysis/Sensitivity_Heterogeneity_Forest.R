@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v12 - JPEG Output)
+# Sensitivity Heterogeneity Forest Plot (v13 - Fixed Legend Colors)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -93,7 +93,6 @@ fn_custom <- local({
 })
 
 # Export JPEG
-# Scaled for 300dpi readability
 jpeg_height <- (5 + length(labels) * 0.45) * 300
 jpeg_width <- 15 * 300
 
@@ -122,11 +121,15 @@ forestplot(
 )
 
 # Draw Legend manually
-grid.text("Primary Analysis", x = 0.35, y = 0.97, gp = gpar(fontsize = 12, fontface = "bold"))
-grid.points(x = 0.33, y = 0.97, pch = 18, size = unit(4, "mm"), gp = gpar(col = "black", fill = "black"))
+# Primary: Black Text, Black Line/Diamond
+grid.text("Primary Analysis", x = 0.35, y = 0.97, gp = gpar(fontsize = 12, fontface = "bold", col = "black"))
+grid.lines(x = c(0.28, 0.30), y = 0.97, gp = gpar(col = "black", lwd = 2))
+grid.points(x = 0.29, y = 0.97, pch = 18, size = unit(4, "mm"), gp = gpar(col = "black", fill = "black"))
 
-grid.text("Sensitivity Analysis", x = 0.65, y = 0.97, gp = gpar(fontsize = 12, fontface = "bold", col = "blue"))
-grid.points(x = 0.63, y = 0.97, pch = 18, size = unit(4, "mm"), gp = gpar(col = "blue", fill = "blue"))
+# Sensitivity: Black Text, Blue Line/Diamond
+grid.text("Sensitivity Analysis", x = 0.65, y = 0.97, gp = gpar(fontsize = 12, fontface = "bold", col = "black"))
+grid.lines(x = c(0.57, 0.59), y = 0.97, gp = gpar(col = "blue", lwd = 2))
+grid.points(x = 0.58, y = 0.97, pch = 18, size = unit(4, "mm"), gp = gpar(col = "blue", fill = "blue"))
 
 dev.off()
 cat("Plot created: Heterogeneity_Sensitivity_Forest.jpg\n")
