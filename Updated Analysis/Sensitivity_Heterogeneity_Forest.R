@@ -1,4 +1,4 @@
-# Sensitivity Heterogeneity Forest Plot (v15 - Collapsed Rows, No Text Labels)
+# Sensitivity Heterogeneity Forest Plot (v16 - Lines + Legend Fix)
 
 if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
 library(forestplot)
@@ -20,34 +20,46 @@ i2s <- c()
 ks <- c()
 marker_clrs <- c()
 
+# Horizontal lines list
+# Start with top line at row 1 (Header)
+hr_lines <- list("1" = gpar(lwd = 2, col = "black"))
+
+# Track row index to place lines correctly
+# Row 1 is Header.
+# Data starts at Row 2.
+current_row_idx <- 1
+
 for (i in seq_len(nrow(df))) {
     grp <- gsub("_", ": ", df$Group[i])
 
-    # Row 1: Outcome Name + Primary Analysis (Black)
+    # Row A: Outcome + Primary (Black)
     labels <- c(labels, grp)
     means <- c(means, df$Orig_OR[i])
     lowers <- c(lowers, df$Orig_Lower[i])
     uppers <- c(uppers, df$Orig_Upper[i])
-    i2s <- c(i2s, sprintf("%.1f%%", df$Orig_I2[i]))
     ks <- c(ks, df$Orig_k[i])
     marker_clrs <- c(marker_clrs, "black")
+    current_row_idx <- current_row_idx + 1
 
-    # Row 2: Empty Label + Sensitivity Analysis (Blue)
+    # Row B: Sensitivity (Blue)
     labels <- c(labels, "")
     means <- c(means, df$New_OR[i])
     lowers <- c(lowers, df$New_Lower[i])
     uppers <- c(uppers, df$New_Upper[i])
-    i2s <- c(i2s, sprintf("%.1f%%", df$New_I2[i]))
     ks <- c(ks, df$New_k[i])
     marker_clrs <- c(marker_clrs, "blue")
+    current_row_idx <- current_row_idx + 1
 
-    # Spacer
+    # Add Line AFTER Sensitivity Row
+    hr_lines[[as.character(current_row_idx)]] <- gpar(col = "grey50", lwd = 1)
+
+    # Row C: Spacer
     labels <- c(labels, "")
     means <- c(means, NA)
     lowers <- c(lowers, NA)
     uppers <- c(uppers, NA)
-    i2s <- c(i2s, "")
     ks <- c(ks, "")
+    current_row_idx <- current_row_idx + 1
 }
 
 # 3. Assemble Table Text
@@ -69,17 +81,8 @@ final_means <- c(NA, means)
 final_lowers <- c(NA, lowers)
 final_uppers <- c(NA, uppers)
 
-# Summary: Only Outcome Header rows (which now have Data) should be Bold?
-# Or should we make them normal font but allow the plot to draw?
-# If we set is.summary=TRUE, forestplot bolds the text.
-# We want the Outcome Name bold.
-# But we also want to draw a Custom Marker (Diamond), not a Summary Polygon.
-# Our custom function 'fn.ci_norm' overrides standard markers.
-# Forestplot usage: fn.ci_norm handles standard CIs. fn.ci_sum handles summary CIs.
-# If is.summary=TRUE, it calls fn.ci_sum.
-# So we must assign our custom function to `fn.ci_sum` as well if we want summary rows to use Diamonds.
-
-is_summary <- c(TRUE, grepl(":", labels) | labels == "")
+is_summary_safe <- rep(FALSE, length(final_means))
+is_summary_safe[1] <- TRUE # Header
 
 fn_custom <- local({
     i <- 0
@@ -92,32 +95,14 @@ fn_custom <- local({
         color <- clrs[i]
         if (is.na(color)) {
             return()
-        } # Safety
+        }
         fpDrawDiamondCI(..., clr.line = color, clr.marker = color, boxsize = 0.5)
     }
 })
 
-# We need a separate counter/function for summary if we want to support both.
-# But wait, our 'marker_clrs' matches the length of data rows (non-NA).
-# If header rows are summary, they consume an index.
-# The `marker_clrs` vector was built assuming every data row gets a color.
-# Row 1 (Header+Primary) -> Black.
-# Row 2 (Sensitivity) -> Blue.
-# This works perfectly.
-# EXCEPT: forestplot calls `fn.ci_sum` for summary rows and `fn.ci_norm` for normal rows.
-# We must ensure both use our custom painter AND share the same index counter 'i'.
-# Or better: simply treat all rows as NORMAL rows (is.summary = FALSE)
-# and use a 'txt_gp' argument to Bold the first column if it matches the pattern?
-# Forestplot strictly separates summary/normal rows.
-# Setting is.summary = FALSE for everything makes the text normal weight. This is safe and clean.
-# Use standard 'fn.ci_norm'.
-
-is_summary_safe <- rep(FALSE, length(final_means))
-is_summary_safe[1] <- TRUE # Header of table is summary
-
 # Export JPEG
-# Height calculation: fewer rows now, but keep spacing
-jpeg_height <- (4 + length(labels) * 0.4) * 300
+# Height calculation
+jpeg_height <- (4 + length(labels) * 0.35) * 300
 jpeg_width <- 15 * 300
 
 jpeg("Heterogeneity_Sensitivity_Forest.jpg", width = jpeg_width, height = jpeg_height, res = 300)
@@ -128,7 +113,7 @@ forestplot(
     mean = final_means,
     lower = final_lowers,
     upper = final_uppers,
-    fn.ci_norm = fn_custom, # Use custom drawer for ALL rows (since we set is.summary=FALSE)
+    fn.ci_norm = fn_custom,
     is.summary = is_summary_safe,
     xlog = TRUE,
     col = fpColors(lines = "black", zero = "gray"),
@@ -141,19 +126,22 @@ forestplot(
         xlab = gpar(cex = 1.6)
     ),
     xlab = "Odds Ratio (log scale)",
-    hrzl_lines = list("1" = gpar(lwd = 2, col = "black"))
+    hrzl_lines = hr_lines # Apply dynamic lines
 )
 
 # Draw Legend manually
+# Force to Root Viewport to ensure drawing on top of everything
+seekViewport("ROOT")
+
 # Primary
-grid.text("Primary Analysis", x = 0.35, y = 0.97, gp = gpar(fontsize = 16, fontface = "bold", col = "black"))
-grid.lines(x = c(0.24, 0.28), y = 0.97, gp = gpar(col = "black", lwd = 3))
-grid.points(x = 0.26, y = 0.97, pch = 18, size = unit(6, "mm"), gp = gpar(col = "black", fill = "black"))
+grid.text("Primary Analysis", x = 0.30, y = 0.96, gp = gpar(fontsize = 20, fontface = "bold", col = "black"), just = "left")
+grid.lines(x = c(0.24, 0.29), y = 0.96, gp = gpar(col = "black", lwd = 3))
+grid.points(x = 0.265, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "black", fill = "black"))
 
 # Sensitivity
-grid.text("Sensitivity Analysis", x = 0.65, y = 0.97, gp = gpar(fontsize = 16, fontface = "bold", col = "black"))
-grid.lines(x = c(0.53, 0.57), y = 0.97, gp = gpar(col = "blue", lwd = 3))
-grid.points(x = 0.55, y = 0.97, pch = 18, size = unit(6, "mm"), gp = gpar(col = "blue", fill = "blue"))
+grid.text("Sensitivity Analysis", x = 0.60, y = 0.96, gp = gpar(fontsize = 20, fontface = "bold", col = "black"), just = "left")
+grid.lines(x = c(0.54, 0.59), y = 0.96, gp = gpar(col = "blue", lwd = 3))
+grid.points(x = 0.565, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "blue", fill = "blue"))
 
 dev.off()
 cat("Plot created: Heterogeneity_Sensitivity_Forest.jpg\n")
