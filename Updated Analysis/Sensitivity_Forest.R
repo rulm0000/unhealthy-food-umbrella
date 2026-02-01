@@ -1,64 +1,114 @@
-# Sensitivity Analysis Forest Plot
-# Visualizes the comparison between Original and Deduplicated (Sensitivity) Models
+# Sensitivity Forest Plot - BASE GENERATION
+# Output: Sensitivity_Forest_Plot_Base.jpg
+# - Base for Python Overlay
 
-if (!requireNamespace("forestplot", quietly = TRUE)) install.packages("forestplot")
+if (!requireNamespace("forestplot", quietly = TRUE)) stop("forestplot missing")
 library(forestplot)
 library(dplyr)
 library(grid)
 
-# Load Data
 comp_file <- "Sensitivity_Comparison.csv"
 if (!file.exists(comp_file)) stop("Comparison file not found")
-
 df <- read.csv(comp_file, stringsAsFactors = FALSE)
 
-# Prepare Data for Forestplot
-# Forestplot expects vectors/matrices
+row_sleep_orig <- which(grepl("Sleep Dissatisfaction \\(Original\\)", df$Label))
+row_sleep_sens <- which(grepl("Sleep Dissatisfaction \\(Sensitivity\\)", df$Label))
+row_adhd_orig <- which(grepl("ADHD Diagnosis \\(JF - Original\\)", df$Label))
+row_adhd_sens <- which(grepl("ADHD Diagnosis \\(JF - Sensitivity\\)", df$Label))
 
-# We want to group by Outcome to keep pairs together
-# The CSV is already sorted by Outcome/Label
+labels <- c()
+means <- c()
+lowers <- c()
+uppers <- c()
+ks <- c()
+marker_clrs <- c()
 
-# Convert numeric
-df$OR <- as.numeric(df$OR)
-df$CI_Lower <- as.numeric(df$CI_Lower)
-df$CI_Upper <- as.numeric(df$CI_Upper)
+add_data <- function(idx, label_text, color) {
+    labels <<- c(labels, label_text)
+    means <<- c(means, df$OR[idx])
+    lowers <<- c(lowers, df$CI_Lower[idx])
+    uppers <<- c(uppers, df$CI_Upper[idx])
+    ks <<- c(ks, df$k[idx])
+    marker_clrs <<- c(marker_clrs, color)
+}
+add_spacer <- function() {
+    labels <<- c(labels, "")
+    means <<- c(means, NA)
+    lowers <<- c(lowers, NA)
+    uppers <<- c(uppers, NA)
+    ks <<- c(ks, "")
+}
 
-# Table Text
-# Label | k | OR (95% CI)
-es_text <- sprintf("%.2f (%.2f, %.2f)", df$OR, df$CI_Lower, df$CI_Upper)
-es_text[is.na(df$OR)] <- ""
+add_data(row_sleep_orig, "  Sleep Dissatisfaction", "black")
+add_data(row_sleep_sens, "", "blue")
+add_spacer()
+add_data(row_adhd_orig, "  ADHD Diagnosis", "black")
+add_data(row_adhd_sens, "", "blue")
 
-tabletext <- cbind(
-    c("Outcome / Analysis", df$Label),
-    c("k", df$k),
-    c("OR (95% CI)", es_text),
-    c("I2", paste0(round(as.numeric(df$I2)), "%"))
+hr_line_list <- list()
+hr_line_list[["4"]] <- gpar(col = "grey60", lwd = 1)
+
+es_vals <- ifelse(is.na(means), "",
+    paste0(
+        sprintf("%.2f", means), " (",
+        sprintf("%.2f", lowers), ", ",
+        sprintf("%.2f", uppers), ")"
+    )
 )
+tabletext <- cbind(
+    c("Outcome", labels),
+    c("Effect Size (95% CIs)", es_vals),
+    c("k", ks)
+)
+final_means <- c(NA, means)
+final_lowers <- c(NA, lowers)
+final_uppers <- c(NA, uppers)
 
-# Means and Limits
-means <- c(NA, df$OR)
-lowers <- c(NA, df$CI_Lower)
-uppers <- c(NA, df$CI_Upper)
+is_summary <- rep(FALSE, length(final_means))
+is_summary[1] <- TRUE
 
-# Export Forest Plot - JPEG Format for GitHub (Repo Path)
-jpeg_height <- (5 + nrow(df) * 1) * 300
-jpeg_width <- 12 * 300
+fn_custom <- local({
+    i <- 0
+    clrs <- marker_clrs
+    function(..., clr.line, clr.marker) {
+        i <<- i + 1
+        if (i > length(clrs)) {
+            return()
+        }
+        color <- clrs[i]
+        if (is.na(color)) {
+            return()
+        }
+        fpDrawDiamondCI(..., clr.line = color, clr.marker = color, boxsize = 0.5)
+    }
+})
 
-output_file <- "../unhealthy-food-umbrella/Updated Analysis/Sensitivity_Forest_Plot.jpg"
+jpeg_height <- (5 + length(labels) * 0.45) * 300
+jpeg_width <- 15 * 300
+output_file <- "Sensitivity_Forest_Plot_Base.jpg"
+
 jpeg(output_file, width = jpeg_width, height = jpeg_height, res = 300)
 
 forestplot(
     labeltext = tabletext,
-    mean = means,
-    lower = lowers,
-    upper = uppers,
+    mean = final_means,
+    lower = final_lowers,
+    upper = final_uppers,
+    fn.ci_norm = fn_custom,
+    is.summary = is_summary,
     xlog = TRUE,
+    col = fpColors(lines = "black", zero = "red"),
+    lwd.ci = 3,
+    colgap = unit(4, "mm"),
+    title = "",
     xlab = "Odds Ratio (log scale)",
-    title = "Sensitivity Analysis: Excluding Duplicates",
-    col = fpColors(box = "black", line = "black", summary = "black"),
-    txt_gp = fpTxtGp(label = gpar(cex = 1.0), ticks = gpar(cex = 0.9), xlab = gpar(cex = 1)),
-    new_page = TRUE
+    hrzl_lines = hr_line_list,
+    txt_gp = fpTxtGp(
+        label = gpar(cex = 1.6),
+        ticks = gpar(cex = 1.5),
+        xlab = gpar(cex = 1.6)
+    ),
+    graph.pos = 2
 )
-
 dev.off()
-cat("Plot saved to:", output_file, "\n")
+cat("Base plot saved to", output_file, "\n")

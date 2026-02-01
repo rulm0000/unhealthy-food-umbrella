@@ -122,9 +122,9 @@ fn_custom <- local({
 jpeg_height <- (4 + length(labels) * 0.40) * 300
 jpeg_width <- 16 * 300
 
-jpeg("Heterogeneity_Sensitivity_Forest.jpg", width = jpeg_width, height = jpeg_height, res = 300)
+jpeg("Heterogeneity_Sensitivity_Forest_Base.jpg", width = jpeg_width, height = jpeg_height, res = 300)
 
-forestplot(
+p <- forestplot(
     labeltext = tabletext,
     graph.pos = 2,
     mean = final_means,
@@ -145,19 +145,7 @@ forestplot(
     xlab = "Odds Ratio (log scale)",
     hrzl_lines = hr_lines
 )
-
-# Draw Legend manually
-try(upViewport(0), silent = TRUE)
-
-# Primary
-grid.text("Primary Analysis", x = 0.30, y = 0.96, gp = gpar(fontsize = 20, fontface = "bold", col = "black"), just = "left")
-grid.lines(x = c(0.24, 0.29), y = 0.96, gp = gpar(col = "black", lwd = 3))
-grid.points(x = 0.265, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "black"))
-
-# Sensitivity
-grid.text("Sensitivity Analysis", x = 0.60, y = 0.96, gp = gpar(fontsize = 20, fontface = "bold", col = "black"), just = "left")
-grid.lines(x = c(0.54, 0.59), y = 0.96, gp = gpar(col = "blue", lwd = 3))
-grid.points(x = 0.565, y = 0.96, pch = 18, size = unit(7, "mm"), gp = gpar(col = "blue"))
+print(p)
 
 dev.off()
 cat("Plot created: Heterogeneity_Sensitivity_Forest.jpg\n")
