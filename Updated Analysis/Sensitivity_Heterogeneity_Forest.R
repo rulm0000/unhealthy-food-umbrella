@@ -133,6 +133,7 @@ p <- forestplot(
     fn.ci_norm = fn_custom,
     is.summary = is_summary_safe,
     xlog = TRUE,
+    xticks = c(0.5, 1, 2),
     col = fpColors(lines = "black", zero = "red"),
     lwd.ci = 3,
     colgap = unit(4, "mm"),
